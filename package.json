@@ -1,0 +1,22 @@
+{
+  "name": "petrol-price",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "bun run index.ts",
+    "dev": "bun --watch run index.ts"
+  },
+  "dependencies": {
+    "grammy": "^1.41.1",
+    "hono": "^4.12.9",
+    "node-cron": "^4.2.1",
+    "chart.js": "^4.5.0",
+    "chartjs-node-canvas": "^5.0.0"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/node-cron": "^3.0.11",
+    "typescript": "^5"
+  }
+}
