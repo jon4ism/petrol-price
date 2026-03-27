@@ -4,6 +4,7 @@ import { getSubscribers } from "../services/subscribers";
 import { fetchNearbyStations } from "../services/fuelApi";
 import { buildCaption } from "../services/format";
 import { generateFuelChart } from "../charts/generator";
+import { log } from "../services/logger";
 
 export function startScheduler(bot: Bot): void {
   cron.schedule(
@@ -11,17 +12,17 @@ export function startScheduler(bot: Bot): void {
     async () => {
       const subscribers = getSubscribers();
       if (subscribers.length === 0) {
-        console.log("[scheduler] No subscribers, skipping broadcast.");
+        log("[scheduler] No subscribers, skipping broadcast.");
         return;
       }
 
-      console.log(`[scheduler] Broadcasting to ${subscribers.length} subscriber(s)...`);
+      log(`[scheduler] Broadcasting to ${subscribers.length} subscriber(s)...`);
 
       let stations;
       try {
         stations = await fetchNearbyStations(10);
       } catch (err) {
-        console.error("[scheduler] Failed to fetch stations:", err);
+        log(`[scheduler] Failed to fetch stations: ${err}`);
         return;
       }
 
@@ -39,7 +40,7 @@ export function startScheduler(bot: Bot): void {
         buffer = await generateFuelChart(stations95.slice(0, 10), stationsDiesel.slice(0, 10));
         caption = buildCaption(stations95.slice(0, 5), stationsDiesel.slice(0, 5));
       } catch (err) {
-        console.error("[scheduler] Failed to generate chart/caption:", err);
+        log(`[scheduler] Failed to generate chart/caption: ${err}`);
         return;
       }
 
@@ -54,11 +55,11 @@ export function startScheduler(bot: Bot): void {
 
       const succeeded = results.filter((r) => r.status === "fulfilled").length;
       const failed = results.filter((r) => r.status === "rejected");
-      console.log(`[scheduler] Done: ${succeeded} sent, ${failed.length} failed`);
+      log(`[scheduler] Done: ${succeeded} sent, ${failed.length} failed`);
 
       for (const f of failed) {
         if (f.status === "rejected") {
-          console.error("[scheduler] Send failed:", f.reason);
+          log(`[scheduler] Send failed: ${f.reason}`);
         }
       }
     },

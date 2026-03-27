@@ -3,6 +3,7 @@ import { fetchNearbyStations } from "../services/fuelApi";
 import { subscribe, unsubscribe } from "../services/subscribers";
 import { buildCaption } from "../services/format";
 import { generateFuelChart } from "../charts/generator";
+import { log } from "../services/logger";
 
 async function sendFuelPrices(
   bot: Bot,
@@ -44,6 +45,7 @@ export function registerCommands(bot: Bot): void {
     if (!chatId) return;
 
     subscribe(chatId);
+    log(`[commands] /start chatId=${chatId} subscribed`);
 
     await ctx.reply(
       "✅ *Suscrito correctamente*\n\n" +
@@ -60,6 +62,7 @@ export function registerCommands(bot: Bot): void {
     if (!chatId) return;
 
     unsubscribe(chatId);
+    log(`[commands] /stop chatId=${chatId} unsubscribed`);
 
     await ctx.reply(
       "❌ *Suscripción cancelada*\n\nYa no recibirás actualizaciones diarias\\. Usa /start para volver a suscribirte\\.",
@@ -71,6 +74,7 @@ export function registerCommands(bot: Bot): void {
     const chatId = ctx.chat?.id;
     if (!chatId) return;
 
+    log(`[commands] /precios requested by chatId=${chatId}`);
     await ctx.replyWithChatAction("upload_photo");
 
     try {
@@ -81,7 +85,7 @@ export function registerCommands(bot: Bot): void {
         });
       });
     } catch (err) {
-      console.error("[commands] /precios error:", err);
+      log(`[commands] /precios error: ${err}`);
       await ctx.reply(
         "⚠️ Error al obtener los precios\\. Inténtalo de nuevo más tarde\\.",
         { parse_mode: "MarkdownV2" },
