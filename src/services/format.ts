@@ -12,6 +12,7 @@ function esc(text: string): string {
 export function buildCaption(
   top5_95: FuelStation[],
   top5_diesel: FuelStation[],
+  locationLabel = "Usansolo",
 ): string {
   const now = new Date().toLocaleString("es-ES", {
     timeZone: "Europe/Madrid",
@@ -39,7 +40,7 @@ export function buildCaption(
     "🚗 *Top 5 Diésel:*",
     ...linesDiesel,
     "",
-    `📍 Radio: 10km desde Usansolo`,
+    `📍 Radio: 10km desde ${esc(locationLabel)}`,
     `🕐 Actualizado: ${esc(now)}`,
   ].join("\n");
 }

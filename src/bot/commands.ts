@@ -1,5 +1,5 @@
 import { InputFile, type Bot } from "grammy";
-import { fetchNearbyStations } from "../services/fuelApi";
+import { fetchNearbyStations, fetchNearbyStationsAt } from "../services/fuelApi";
 import { subscribe, unsubscribe } from "../services/subscribers";
 import { buildCaption } from "../services/format";
 import { generateFuelChart } from "../charts/generator";
@@ -51,8 +51,9 @@ export function registerCommands(bot: Bot): void {
       "✅ *Suscrito correctamente*\n\n" +
         "Recibirás los precios de combustible cada día a las 8:00 AM\\.\n\n" +
         "*Comandos disponibles:*\n" +
-        "• /precios — Consultar precios ahora\n" +
-        "• /stop — Cancelar suscripción\n",
+        "• /precios — Consultar precios cerca de Usansolo\n" +
+        "• /stop — Cancelar suscripción\n\n" +
+        "📍 También puedes *compartir tu ubicación* para ver las gasolineras más baratas en 10km a tu alrededor\\.",
       { parse_mode: "MarkdownV2" },
     );
   });
@@ -68,6 +69,52 @@ export function registerCommands(bot: Bot): void {
       "❌ *Suscripción cancelada*\n\nYa no recibirás actualizaciones diarias\\. Usa /start para volver a suscribirte\\.",
       { parse_mode: "MarkdownV2" },
     );
+  });
+
+  bot.on("message:location", async (ctx) => {
+    const chatId = ctx.chat?.id;
+    if (!chatId) return;
+
+    const { latitude, longitude } = ctx.message.location;
+    log(`[commands] location received chatId=${chatId} lat=${latitude} lon=${longitude}`);
+    await ctx.replyWithChatAction("upload_photo");
+
+    try {
+      const stations = await fetchNearbyStationsAt(latitude, longitude, 10);
+
+      const stations95 = stations
+        .filter((s) => s.price95 !== null)
+        .sort((a, b) => (a.price95 ?? 0) - (b.price95 ?? 0));
+
+      const stationsDiesel = stations
+        .filter((s) => s.priceDiesel !== null)
+        .sort((a, b) => (a.priceDiesel ?? 0) - (b.priceDiesel ?? 0));
+
+      if (stations95.length === 0 && stationsDiesel.length === 0) {
+        await ctx.reply(
+          "📍 No se han encontrado gasolineras en un radio de 10km desde tu ubicación\\.",
+          { parse_mode: "MarkdownV2" },
+        );
+        return;
+      }
+
+      const top5_95 = stations95.slice(0, 5);
+      const top5_diesel = stationsDiesel.slice(0, 5);
+      const top10_95 = stations95.slice(0, 10);
+      const top10_diesel = stationsDiesel.slice(0, 10);
+
+      const caption = buildCaption(top5_95, top5_diesel, "tu ubicación");
+      const buffer = await generateFuelChart(top10_95, top10_diesel);
+      const inputFile = new InputFile(buffer, "precios.png");
+
+      await ctx.replyWithPhoto(inputFile, { caption, parse_mode: "MarkdownV2" });
+    } catch (err) {
+      log(`[commands] location error: ${err}`);
+      await ctx.reply(
+        "⚠️ Error al obtener los precios\\. Inténtalo de nuevo más tarde\\.",
+        { parse_mode: "MarkdownV2" },
+      );
+    }
   });
 
   bot.command("precios", async (ctx) => {

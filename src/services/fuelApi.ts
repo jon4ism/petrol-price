@@ -40,7 +40,7 @@ function parseCommaFloat(raw: string): number | null {
   return isNaN(value) ? null : value;
 }
 
-export async function fetchNearbyStations(radiusKm: number): Promise<FuelStation[]> {
+async function fetchAllStations(): Promise<RawStation[]> {
   const response = await fetch(API_URL, {
     headers: { Accept: "application/json" },
   });
@@ -50,29 +50,52 @@ export async function fetchNearbyStations(radiusKm: number): Promise<FuelStation
   }
 
   const data = (await response.json()) as ApiResponse;
+  return data.ListaEESSPrecio;
+}
+
+function parseStationsNear(
+  raw: RawStation[],
+  refLat: number,
+  refLon: number,
+  radiusKm: number,
+): FuelStation[] {
   const stations: FuelStation[] = [];
 
-  for (const raw of data.ListaEESSPrecio) {
-    const lat = parseCommaFloat(raw["Latitud"]);
-    const lon = parseCommaFloat(raw["Longitud (WGS84)"]);
+  for (const s of raw) {
+    const lat = parseCommaFloat(s["Latitud"]);
+    const lon = parseCommaFloat(s["Longitud (WGS84)"]);
 
     if (lat === null || lon === null) continue;
 
-    const distanceKm = haversineKm(USANSOLO_LAT, USANSOLO_LON, lat, lon);
+    const distanceKm = haversineKm(refLat, refLon, lat, lon);
     if (distanceKm > radiusKm) continue;
 
     stations.push({
-      id: raw["IDEESS"],
-      name: raw["Rótulo"],
-      address: raw["Dirección"],
-      municipality: raw["Municipio"],
+      id: s["IDEESS"],
+      name: s["Rótulo"],
+      address: s["Dirección"],
+      municipality: s["Municipio"],
       lat,
       lon,
-      price95: parseCommaFloat(raw["Precio Gasolina 95 E5"]),
-      priceDiesel: parseCommaFloat(raw["Precio Gasoleo A"]),
+      price95: parseCommaFloat(s["Precio Gasolina 95 E5"]),
+      priceDiesel: parseCommaFloat(s["Precio Gasoleo A"]),
       distanceKm,
     });
   }
 
   return stations;
+}
+
+export async function fetchNearbyStations(radiusKm: number): Promise<FuelStation[]> {
+  const raw = await fetchAllStations();
+  return parseStationsNear(raw, USANSOLO_LAT, USANSOLO_LON, radiusKm);
+}
+
+export async function fetchNearbyStationsAt(
+  lat: number,
+  lon: number,
+  radiusKm: number,
+): Promise<FuelStation[]> {
+  const raw = await fetchAllStations();
+  return parseStationsNear(raw, lat, lon, radiusKm);
 }
