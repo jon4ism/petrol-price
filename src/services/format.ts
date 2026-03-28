@@ -9,6 +9,16 @@ function esc(text: string): string {
   return text.replace(/[_*[\]()~`>#+=|{}.!\\-]/g, "\\$&");
 }
 
+// Escape characters that must be escaped inside a MarkdownV2 URL (inside parentheses)
+function escUrl(url: string): string {
+  return url.replace(/[)\\]/g, "\\$&");
+}
+
+function mapsLink(station: FuelStation): string {
+  const url = escUrl(`https://maps.google.com/?q=${station.lat},${station.lon}`);
+  return `[${esc(station.address)}](${url})`;
+}
+
 export function buildCaption(
   top5_95: FuelStation[],
   top5_diesel: FuelStation[],
@@ -25,12 +35,12 @@ export function buildCaption(
 
   const lines95 = top5_95.map((s, i) => {
     const price = s.price95 !== null ? `${esc(priceStr(s.price95))} €/L` : "N/D";
-    return `${i + 1}\\. ${esc(s.name)} \\- ${esc(s.address)} → ${price}`;
+    return `${i + 1}\\. ${esc(s.name)} \\- ${mapsLink(s)} → ${price}`;
   });
 
   const linesDiesel = top5_diesel.map((s, i) => {
     const price = s.priceDiesel !== null ? `${esc(priceStr(s.priceDiesel))} €/L` : "N/D";
-    return `${i + 1}\\. ${esc(s.name)} \\- ${esc(s.address)} → ${price}`;
+    return `${i + 1}\\. ${esc(s.name)} \\- ${mapsLink(s)} → ${price}`;
   });
 
   return [
