@@ -39,13 +39,20 @@ async function sendFuelPrices(
   }
 }
 
+function senderTag(ctx: { from?: { id: number; first_name?: string; last_name?: string; username?: string } }): string {
+  const f = ctx.from;
+  if (!f) return "unknown";
+  const name = [f.first_name, f.last_name].filter(Boolean).join(" ");
+  return f.username ? `${name} (@${f.username})` : name || `id:${f.id}`;
+}
+
 export function registerCommands(bot: Bot): void {
   bot.command(["start", "subscribe"], async (ctx) => {
     const chatId = ctx.chat?.id;
     if (!chatId) return;
 
     subscribe(chatId);
-    log(`[commands] /start chatId=${chatId} subscribed`);
+    log(`[commands] /start chatId=${chatId} user="${senderTag(ctx)}" subscribed`);
 
     await ctx.reply(
       "✅ *Suscrito correctamente*\n\n" +
@@ -63,7 +70,7 @@ export function registerCommands(bot: Bot): void {
     if (!chatId) return;
 
     unsubscribe(chatId);
-    log(`[commands] /stop chatId=${chatId} unsubscribed`);
+    log(`[commands] /stop chatId=${chatId} user="${senderTag(ctx)}" unsubscribed`);
 
     await ctx.reply(
       "❌ *Suscripción cancelada*\n\nYa no recibirás actualizaciones diarias\\. Usa /start para volver a suscribirte\\.",
@@ -76,7 +83,7 @@ export function registerCommands(bot: Bot): void {
     if (!chatId) return;
 
     const { latitude, longitude } = ctx.message.location;
-    log(`[commands] location received chatId=${chatId} lat=${latitude} lon=${longitude}`);
+    log(`[commands] location received chatId=${chatId} user="${senderTag(ctx)}" lat=${latitude} lon=${longitude}`);
     await ctx.replyWithChatAction("upload_photo");
 
     try {
@@ -121,7 +128,7 @@ export function registerCommands(bot: Bot): void {
     const chatId = ctx.chat?.id;
     if (!chatId) return;
 
-    log(`[commands] /precios requested by chatId=${chatId}`);
+    log(`[commands] /precios requested by chatId=${chatId} user="${senderTag(ctx)}"`);
     await ctx.replyWithChatAction("upload_photo");
 
     try {
