@@ -1,15 +1,40 @@
 import { InputFile, type Bot } from "grammy";
-import { fetchNearbyStationsAt } from "../services/fuelApi";
+import { fetchNearbyStations, fetchNearbyStationsAt } from "../services/fuelApi";
 import { subscribe, unsubscribe, getSubscribers } from "../services/subscribers";
 import { buildCaption } from "../services/format";
 import { generateFuelChart } from "../charts/generator";
 import { log } from "../services/logger";
 
 const mainKeyboard = {
-  keyboard: [[{ text: "📍 Ver precios cerca de mí", request_location: true }]],
+  keyboard: [
+    [
+      { text: "⛽ Precios Usansolo" },
+      { text: "📍 Ver precios cerca de mí", request_location: true },
+    ],
+  ],
   resize_keyboard: true,
   persistent: true,
 };
+
+async function sendFuelPrices(bot: Bot, chatId: number): Promise<void> {
+  const stations = await fetchNearbyStations(10);
+
+  const stations95 = stations
+    .filter((s) => s.price95 !== null)
+    .sort((a, b) => (a.price95 ?? 0) - (b.price95 ?? 0));
+
+  const stationsDiesel = stations
+    .filter((s) => s.priceDiesel !== null)
+    .sort((a, b) => (a.priceDiesel ?? 0) - (b.priceDiesel ?? 0));
+
+  const caption = buildCaption(stations95.slice(0, 5), stationsDiesel.slice(0, 5));
+  const buffer = await generateFuelChart(stations95.slice(0, 10), stationsDiesel.slice(0, 10));
+
+  await bot.api.sendPhoto(chatId, new InputFile(buffer, "precios.png"), {
+    caption,
+    parse_mode: "MarkdownV2",
+  });
+}
 
 function senderTag(ctx: { from?: { id: number; first_name?: string; last_name?: string; username?: string } }): string {
   const f = ctx.from;
@@ -29,8 +54,10 @@ export function registerCommands(bot: Bot): void {
     await ctx.reply(
       "✅ *Suscrito correctamente*\n\n" +
         "Recibirás los precios de combustible cada día a las 8:00 AM\\.\n\n" +
-        "Pulsa el botón *📍 Ver precios cerca de mí* para consultar las gasolineras más baratas en 10km a tu alrededor\\.\n\n" +
-        "⚠️ Si no tienes el GPS activado, puedes compartir tu ubicación manualmente: toca el clip 📎 → *Ubicación* → mueve el pin al lugar que quieras\\.\n\n" +
+        "Usa los botones para consultar precios:\n" +
+        "• *⛽ Precios Usansolo* — gasolineras cerca de Usansolo\n" +
+        "• *📍 Ver precios cerca de mí* — gasolineras cerca de tu ubicación\n\n" +
+        "⚠️ Si no tienes GPS, puedes compartir ubicación manualmente: toca el clip 📎 → *Ubicación* → mueve el pin\\.\n\n" +
         "Usa /stop para cancelar la suscripción\\.",
       { parse_mode: "MarkdownV2", reply_markup: mainKeyboard },
     );
@@ -47,6 +74,24 @@ export function registerCommands(bot: Bot): void {
       "❌ *Suscripción cancelada*\n\nYa no recibirás actualizaciones diarias\\. Usa /start para volver a suscribirte\\.",
       { parse_mode: "MarkdownV2", reply_markup: { remove_keyboard: true } },
     );
+  });
+
+  bot.hears("⛽ Precios Usansolo", async (ctx) => {
+    const chatId = ctx.chat?.id;
+    if (!chatId) return;
+
+    log(`[commands] Precios Usansolo button by chatId=${chatId} user="${senderTag(ctx)}"`);
+    await ctx.replyWithChatAction("upload_photo");
+
+    try {
+      await sendFuelPrices(bot, chatId);
+    } catch (err) {
+      log(`[commands] Precios Usansolo error: ${err}`);
+      await ctx.reply(
+        "⚠️ Error al obtener los precios\\. Inténtalo de nuevo más tarde\\.",
+        { parse_mode: "MarkdownV2" },
+      );
+    }
   });
 
   bot.command("broadcast", async (ctx) => {
