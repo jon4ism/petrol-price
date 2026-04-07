@@ -1,43 +1,15 @@
 import { InputFile, type Bot } from "grammy";
-import { fetchNearbyStations, fetchNearbyStationsAt } from "../services/fuelApi";
+import { fetchNearbyStationsAt } from "../services/fuelApi";
 import { subscribe, unsubscribe } from "../services/subscribers";
 import { buildCaption } from "../services/format";
 import { generateFuelChart } from "../charts/generator";
 import { log } from "../services/logger";
 
-async function sendFuelPrices(
-  bot: Bot,
-  chatId: number,
-  replyFn?: (caption: string, inputFile: InputFile) => Promise<unknown>,
-): Promise<void> {
-  const stations = await fetchNearbyStations(10);
-
-  const stations95 = stations
-    .filter((s) => s.price95 !== null)
-    .sort((a, b) => (a.price95 ?? 0) - (b.price95 ?? 0));
-
-  const stationsDiesel = stations
-    .filter((s) => s.priceDiesel !== null)
-    .sort((a, b) => (a.priceDiesel ?? 0) - (b.priceDiesel ?? 0));
-
-  const top5_95 = stations95.slice(0, 5);
-  const top5_diesel = stationsDiesel.slice(0, 5);
-  const top10_95 = stations95.slice(0, 10);
-  const top10_diesel = stationsDiesel.slice(0, 10);
-
-  const caption = buildCaption(top5_95, top5_diesel);
-  const buffer = await generateFuelChart(top10_95, top10_diesel);
-  const inputFile = new InputFile(buffer, "precios.png");
-
-  if (replyFn) {
-    await replyFn(caption, inputFile);
-  } else {
-    await bot.api.sendPhoto(chatId, inputFile, {
-      caption,
-      parse_mode: "MarkdownV2",
-    });
-  }
-}
+const mainKeyboard = {
+  keyboard: [[{ text: "📍 Ver precios cerca de mí", request_location: true }]],
+  resize_keyboard: true,
+  persistent: true,
+};
 
 function senderTag(ctx: { from?: { id: number; first_name?: string; last_name?: string; username?: string } }): string {
   const f = ctx.from;
@@ -57,11 +29,9 @@ export function registerCommands(bot: Bot): void {
     await ctx.reply(
       "✅ *Suscrito correctamente*\n\n" +
         "Recibirás los precios de combustible cada día a las 8:00 AM\\.\n\n" +
-        "*Comandos disponibles:*\n" +
-        "• /precios — Consultar precios cerca de Usansolo\n" +
-        "• /stop — Cancelar suscripción\n\n" +
-        "📍 También puedes *compartir tu ubicación* para ver las gasolineras más baratas en 10km a tu alrededor\\.",
-      { parse_mode: "MarkdownV2" },
+        "Pulsa el botón *📍 Ver precios cerca de mí* para consultar las gasolineras más baratas en 10km a tu alrededor\\.\n\n" +
+        "Usa /stop para cancelar la suscripción\\.",
+      { parse_mode: "MarkdownV2", reply_markup: mainKeyboard },
     );
   });
 
@@ -74,7 +44,7 @@ export function registerCommands(bot: Bot): void {
 
     await ctx.reply(
       "❌ *Suscripción cancelada*\n\nYa no recibirás actualizaciones diarias\\. Usa /start para volver a suscribirte\\.",
-      { parse_mode: "MarkdownV2" },
+      { parse_mode: "MarkdownV2", reply_markup: { remove_keyboard: true } },
     );
   });
 
@@ -123,29 +93,4 @@ export function registerCommands(bot: Bot): void {
       );
     }
   });
-
-  bot.command("precios", async (ctx) => {
-    const chatId = ctx.chat?.id;
-    if (!chatId) return;
-
-    log(`[commands] /precios requested by chatId=${chatId} user="${senderTag(ctx)}"`);
-    await ctx.replyWithChatAction("upload_photo");
-
-    try {
-      await sendFuelPrices(bot, chatId, async (caption, inputFile) => {
-        await ctx.replyWithPhoto(inputFile, {
-          caption,
-          parse_mode: "MarkdownV2",
-        });
-      });
-    } catch (err) {
-      log(`[commands] /precios error: ${err}`);
-      await ctx.reply(
-        "⚠️ Error al obtener los precios\\. Inténtalo de nuevo más tarde\\.",
-        { parse_mode: "MarkdownV2" },
-      );
-    }
-  });
 }
-
-export { sendFuelPrices };
