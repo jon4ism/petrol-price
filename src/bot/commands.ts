@@ -1,6 +1,6 @@
 import { InputFile, type Bot } from "grammy";
 import { fetchNearbyStationsAt } from "../services/fuelApi";
-import { subscribe, unsubscribe } from "../services/subscribers";
+import { subscribe, unsubscribe, getSubscribers } from "../services/subscribers";
 import { buildCaption } from "../services/format";
 import { generateFuelChart } from "../charts/generator";
 import { log } from "../services/logger";
@@ -47,6 +47,29 @@ export function registerCommands(bot: Bot): void {
       "❌ *Suscripción cancelada*\n\nYa no recibirás actualizaciones diarias\\. Usa /start para volver a suscribirte\\.",
       { parse_mode: "MarkdownV2", reply_markup: { remove_keyboard: true } },
     );
+  });
+
+  bot.command("broadcast", async (ctx) => {
+    const ownerId = Number(process.env.BROADCAST_OWNER_ID);
+    if (!ownerId || ctx.from?.id !== ownerId) {
+      await ctx.reply("⛔ No tienes permiso para usar este comando.");
+      return;
+    }
+
+    const text = ctx.match?.trim();
+    if (!text) {
+      await ctx.reply("Uso: /broadcast <mensaje>");
+      return;
+    }
+
+    const subscribers = getSubscribers();
+    const results = await Promise.allSettled(
+      subscribers.map((chatId) => bot.api.sendMessage(chatId, text)),
+    );
+
+    const ok = results.filter((r) => r.status === "fulfilled").length;
+    log(`[commands] /broadcast by ${senderTag(ctx)}: ${ok}/${subscribers.length} sent`);
+    await ctx.reply(`✅ Enviado a ${ok} de ${subscribers.length} suscriptores.`);
   });
 
   bot.on("message:location", async (ctx) => {
