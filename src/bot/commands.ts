@@ -30,6 +30,7 @@ export function registerCommands(bot: Bot): void {
       "✅ *Suscrito correctamente*\n\n" +
         "Recibirás los precios de combustible cada día a las 8:00 AM\\.\n\n" +
         "Pulsa el botón *📍 Ver precios cerca de mí* para consultar las gasolineras más baratas en 10km a tu alrededor\\.\n\n" +
+        "⚠️ Si no tienes el GPS activado, puedes compartir tu ubicación manualmente: toca el clip 📎 → *Ubicación* → mueve el pin al lugar que quieras\\.\n\n" +
         "Usa /stop para cancelar la suscripción\\.",
       { parse_mode: "MarkdownV2", reply_markup: mainKeyboard },
     );
